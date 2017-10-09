@@ -1,0 +1,107 @@
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+body * {
+    font-family: 'Baloo Tammudu', cursive;
+}
+footer {
+    text-align: center;
+    padding: 1em;
+    width: 100%;
+    background-color: #eef;
+}
+footer small {
+    font-family: sans-serif;
+    font-weight: 100;
+    color: #888;
+}
+#content {
+    flex: 1;
+    width: 100%;
+}
+.header {
+    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+.game-title {
+    padding: 0.5em 0 0 0;
+    font-size: 32px;
+    transition: 0.2s;
+    perspective: 5px;
+}
+.game-title:hover {
+    transform: rotateZ(-6.283deg) scale(1.5);
+    transition: 0.2s;
+    color: red;
+}
+.game-sub {
+    font-size: 14px;
+    text-transform: uppercase;
+}
+#game {
+    width: 100%;
+    height: 500px;
+    min-height: 300px;
+    position: relative;
+    background-color: #eef;
+    box-shadow: 0 5px 30px #bbb;
+}
+.letter {
+    color: #222;
+    display: inline-block;
+    text-transform: uppercase;
+    margin: 5px;
+    width: 45px;
+    height: 60px;
+    padding: 10px 0;
+    font-size: 40px;
+    transition: 0.2s;
+    text-align: center;
+    border-radius: 10px;
+    background-color: #eb0;
+    border: 2px solid #e50;
+    box-shadow: 3px 3px 0 #bbb;
+}
+.letter:hover {
+    transform: scale(1.1);
+    transition: 0.2s;
+}
+.board {
+    width: 80%;
+    margin-left: 10%;
+    padding: 20px 0;
+    text-align: center;
+}
+.user-input {
+    width: 60%;
+    display: block;
+    overflow: hidden;
+    min-width: 300px;
+    max-width: 600px;
+    transform: translateX(-50%);
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+}
+.user-input > * {
+    margin: 10px;
+}
+.user-input input[name='word'] {
+    width: 90%;
+    display: block;
+    margin-left: 5%;
+    text-align: center;
+    text-transform: uppercase;
+    font-family: 'Baloo Tammudu', cursive;
+    font-size: 26px;
+}
+.user-input input[name='submit'] {
+    display: block;
+    margin: auto;
+    text-transform: uppercase;
+    font-family: 'Baloo Tammudu', cursive;
+    font-size: 20px;
+}
