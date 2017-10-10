@@ -3,6 +3,7 @@
 from Tkinter import *
 import threading
 import socket
+import common
 import time
 import game
 import sys
@@ -16,10 +17,17 @@ class Interface:
         self.ui_root.geometry("600x400")
         self.ui_root.resizable(0, 0)
 
+    # close window
+    def quit(self):
+        print 'quit'
+        self.ui_root.destroy()
+        common.terminate()
+
     # set user interface
     def setInterface(self):
         bg = '#48d'
-        self.frame = Frame(master=self.ui_root, width=600, height=400, padx=30, pady=20, bg=bg)
+        self.ui_root.protocol("WM_DELETE_WINDOW", self.quit)
+        self.frame = Frame(master=self.ui_root, width=600, height=400, bg=bg)
         self.frame.pack_propagate(0)
         self.frame.pack(fill=BOTH, expand=1)
 
@@ -31,7 +39,7 @@ class Interface:
         self.error_ui.set('')
         self.points_ui.set('')
 
-        self.l_board = Message(master=self.frame, bg=bg, textvariable = self.board_ui, width=600, font=("Ubuntu Mono", 42), anchor=NW)
+        self.l_board = Message(master=self.frame, bg=bg, textvariable = self.board_ui, width=540, font=("Ubuntu Mono", 42), anchor=NW)
         self.l_error = Label(master=self.frame, bg=bg, textvariable = self.error_ui)
         self.l_points = Label(master=self.frame, bg=bg, textvariable = self.points_ui)
 
@@ -41,7 +49,7 @@ class Interface:
 
     # update user interface
     def update(self, board, points, error):
-        self.board_ui.set(' '.join(board))
+        self.board_ui.set('  '.join(board))
         self.points_ui.set(str(points) + ' PONTOS')
         if len(error) > 0:
             self.error_ui.set('Erro: ' + error)
@@ -49,6 +57,7 @@ class Interface:
             self.error_ui.set('')
 
         self.ui_root.update_idletasks()
+        self.ui_root.update()
 
 if __name__ == '__main__':
 

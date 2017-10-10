@@ -16,7 +16,7 @@ MAX_LETTERS = 30        # maximum number of letters on the board
 MAX_REP = 4             # maximum number of replicas
 REP_ADDR = {            # replicas' address
     '192.168.0.104':PORT_REP,
-    #'192.168.0.104':PORT_REP,
+    #'127.0.0.1':PORT_REP,
     #'192.168.0.104':PORT_REP,
 }
 REP_NUM = 1             # number of replicas
@@ -27,7 +27,7 @@ if MAX_REP < REP_NUM: raise Exception, 'REP_NUM is greater than MAX_REP'
 # shared resources
 THREADLOCK = threading.Lock()
 BOARD = ['P', 'R', 'O', 'X', 'Y']
-BOARD_STATE = 0
+BOARD_STATE = -1
 
 ################################################################################
 # Periodically send the board to a connected client
@@ -200,14 +200,13 @@ class FeedingBoard(threading.Thread):
 
     def run(self):
         while serving.is_set():
-
             if len(BOARD) < MAX_LETTERS:
                 # choose a letter and multicast to replicas
                 letter = game.chooseLetter()
                 responses = common.replicast(group=REP_ADDR, message=letter, port_stride=64)
 
             # the more letter on the board, the less new letters over time
-            interval = max(len(BOARD)/5, 0.2)
+            interval = max(len(BOARD)/5, 0.4)
             time.sleep(interval)
 
 ################################################################################
@@ -229,15 +228,13 @@ class RetrieveBoard(threading.Thread):
             board = common.replicast_once(group=REP_ADDR, message='board', port_stride=128)
             board = board.split(';')
             board_state = int(board[1])
-            board = board[0]
-
-            #print board, board_state
+            board = board[0].split(',')
 
             if board and board_state > BOARD_STATE:
                 with THREADLOCK:
                     BOARD = board
                     BOARD_STATE = board_state
-                    print BOARD, BOARD_STATE
+                    print ''.join(BOARD), BOARD_STATE
 
             # wait for checking again
             time.sleep(TIME_INTERVAL)
