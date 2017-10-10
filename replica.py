@@ -118,7 +118,7 @@ class ServeBoard(threading.Thread):
             print BOARD
 
             with THREADLOCK:
-                con.send(','.join(BOARD))#+';'+str(BOARD_STATE))
+                con.send(','.join(BOARD)+';'+str(BOARD_STATE))
 
             time.sleep(1)
 
@@ -178,6 +178,10 @@ if __name__ == "__main__":
     t_serving_board = ServeBoard("Serve Board", replicating)
     t_user_attempts = UserAttempts("User Attempts", replicating)
     t_feeding_board = FeedingBoard("Feed Board", replicating)
+
+    t_serving_board.daemon = True
+    t_user_attempts.daemon = True
+    t_feeding_board.daemon = True
 
     t_serving_board.start()
     t_user_attempts.start()

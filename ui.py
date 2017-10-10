@@ -31,7 +31,7 @@ class Interface:
         self.error_ui.set('')
         self.points_ui.set('')
 
-        self.l_board = Message(master=self.frame, bg=bg, textvariable = self.board_ui, font=("Ubuntu Mono", 42), anchor=NW)
+        self.l_board = Message(master=self.frame, bg=bg, textvariable = self.board_ui, width=600, font=("Ubuntu Mono", 42), anchor=NW)
         self.l_error = Label(master=self.frame, bg=bg, textvariable = self.error_ui)
         self.l_points = Label(master=self.frame, bg=bg, textvariable = self.points_ui)
 

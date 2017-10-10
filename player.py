@@ -35,27 +35,28 @@ class UpdateUI(threading.Thread):
         global points
         global error
 
+        # set user interface
+        gui = ui.Interface()
+        gui.setInterface()
+
         # connect to host
         tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         dest = (HOST, PORT)
         tcp.connect(dest)
         tcp.settimeout(5.0)
 
-        # set user interface
-        gui = ui.Interface()
-        gui.setInterface()
-
         # playing
         try:
             while playing.is_set():
-
                 try:
                     # receive current board
                     board = (tcp.recv(1024)).split(';')[0].split(',')
 
-                    gui.update(board, points, error)    # update UI
-                    tcp.send('r')                       # ready signal
-                    time.sleep(1/FPS)                   # timeout for redraw
+                    tcp.send('r')                           # ready signal
+                    if len(board) > 0:
+                        gui.update(board, points, error)    # update UI
+
+                    time.sleep(1/FPS)                  # timeout for redraw
 
                 except socket.timeout:
                     continue
@@ -125,8 +126,8 @@ if __name__ == "__main__":
     playing = threading.Event()
     playing.set()
 
-    t_update_ui = UpdateUI("Update UI", playing)
-    t_user_input = UserInput("User Input", playing)
+    t_update_ui = UpdateUI("UPDATE UI", playing)
+    t_user_input = UserInput("USER INPUT", playing)
 
     t_user_input.daemon = True
     t_update_ui.daemon = True

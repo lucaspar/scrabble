@@ -62,22 +62,19 @@ class SendBoard(threading.Thread):
             # client ready to receive new board
             try:
                 ready = self.con.recv(1)
-                if not ready: raise Exception('Client not ready')
+                if not ready: self.disconnect()
             except socket.timeout:
                 continue
             except:
                 self.disconnect(sys.exc_info()[0])
 
-            while self.serving.is_set():
+            # min time interval between board messages
+            time.sleep(TIME_INTERVAL)
 
-                # min time interval between board messages
-                time.sleep(TIME_INTERVAL)
-
-                # send current board, update local state knowledge
-                if self.board_state < BOARD_STATE:
-                    self.con.send(','.join(BOARD)+';')
-                    self.board_state = BOARD_STATE
-                    break
+            # send current board, update local state knowledge
+            #if self.board_state < BOARD_STATE:
+            self.con.send(','.join(BOARD)+';')
+            self.board_state = BOARD_STATE
 
         self.disconnect()
 
@@ -177,7 +174,6 @@ class ServeBoard(threading.Thread):
     def run(self):
 
         tcp = common.tcp(HOST, PORT, MAX_CONN)
-
         con_count = 0
         threads = []
         while self.serving.is_set():
@@ -231,16 +227,17 @@ class RetrieveBoard(threading.Thread):
         while serving.is_set():
 
             board = common.replicast_once(group=REP_ADDR, message='board', port_stride=128)
+            board = board.split(';')
+            board_state = int(board[1])
+            board = board[0]
 
-            #response = response.split(';')
-            #board = response[0]
-            #board_state = int(response[1])
+            #print board, board_state
 
-            if board: #and board_state > BOARD_STATE:
+            if board and board_state > BOARD_STATE:
                 with THREADLOCK:
                     BOARD = board
-                    BOARD_STATE = BOARD_STATE + 1
-                    print BOARD
+                    BOARD_STATE = board_state
+                    print BOARD, BOARD_STATE
 
             # wait for checking again
             time.sleep(TIME_INTERVAL)
@@ -254,10 +251,15 @@ if __name__ == "__main__":
     serving = threading.Event()
     serving.set()
 
-    t_serving_board = ServeBoard("Serve Board", serving)
-    t_user_attempts = UserAttempts("User Attempts", serving)
-    t_feeding_board = FeedingBoard("Feed Board", serving)
-    t_retrive_board = RetrieveBoard("Retrieve Board", serving)
+    t_serving_board = ServeBoard("SERVE BOARD", serving)
+    t_user_attempts = UserAttempts("USER ATTEMPTS", serving)
+    t_feeding_board = FeedingBoard("FEED BOARD", serving)
+    t_retrive_board = RetrieveBoard("RETRIEVE BOARD", serving)
+
+    t_serving_board.daemon = True
+    t_user_attempts.daemon = True
+    t_feeding_board.daemon = True
+    t_retrive_board.daemon = True
 
     t_serving_board.start()
     t_user_attempts.start()
