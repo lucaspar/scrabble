@@ -19,8 +19,7 @@ REP_ADDR = {            # replicas' address
     #'127.0.0.1':PORT_REP,
     #'192.168.0.104':PORT_REP,
 }
-REP_NUM = 1             # number of replicas
-#REP_NUM = len(REP_ADDR)
+REP_NUM = len(REP_ADDR) # number of replicas
 
 if MAX_REP < REP_NUM: raise Exception, 'REP_NUM is greater than MAX_REP'
 

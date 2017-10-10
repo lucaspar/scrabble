@@ -43,6 +43,8 @@ def tcp_client(host, port, timeout=5):
 def unicast(address, port, message, response_size=1024, timeout=5):
     response = None
 
+    print 'unicast trying', address
+
     # connect to host
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     dest = (address, port)
@@ -66,8 +68,6 @@ def replicast(group, message, port_stride=0):
         try:
             responses[address] = unicast(address, port+port_stride, message)
         except socket.error as serr:
-            if serr.errno != errno.ECONNREFUSED: raise serr
-            # connection refused
             print 'replicast: Replica %s is unreachable:' % address, serr
 
     return responses
@@ -77,11 +77,11 @@ def replicast_once(group, message, port_stride=0):
     response = None
     for address, port in group.items():
         try:
+            print 'once trying', address
             response = unicast(address, port+port_stride, message)
             if response is None: continue
             else: break
         except socket.error as serr:
-            if serr.errno != errno.ECONNREFUSED: raise serr
             print 'replicast_once: Replica %s is unreachable:' % address, serr
 
     return response

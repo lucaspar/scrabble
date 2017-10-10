@@ -11,9 +11,9 @@ import ui
 import os
 
 # constants
-HOST = '127.0.0.1'      # proxy address
-PORT = 5000             # port
-FPS = 20                # frames per second
+HOST = '192.168.83.134'     # proxy address
+PORT = 5000                 # port
+FPS = 20                    # frames per second
 
 # game properties
 board = []
