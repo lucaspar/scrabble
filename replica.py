@@ -9,58 +9,12 @@ import sys
 # constants
 HOST = ''               # server address
 PORT = 6000             # port
-MAX_CONN = 5            # maximum simultaneous connections
+MAX_CONN = 10           # maximum simultaneous connections
 
 # shared resources
 THREADLOCK = threading.Lock()
 BOARD = ['R', 'E', 'P', 'L', 'I', 'C', 'A']
 BOARD_STATE = 0
-SEND_BOARD = True
-
-################################################################################
-# Send current board to proxy
-class SendBoard(threading.Thread):
-
-    def __init__(self, name, con, client, serving):
-        threading.Thread.__init__(self)
-        self.name = name
-        self.con = con
-        self.client = client
-        self.serving = serving
-        self.board_state = -1
-
-    def run(self):
-        print '\t', 'SENDING BOARD TO', self.client
-
-        global BOARD
-        global BOARD_STATE
-        global SEND_BOARD
-        self.con.settimeout(5.0)
-        self.con.send(','.join(BOARD)+';')
-
-        while self.serving.is_set():
-
-            # client ready to receive new board
-            try:
-                ready = self.con.recv(1)
-                if not ready:
-                    break
-            except socket.timeout:
-                continue
-
-            while self.replicating.is_set():
-
-                # min time interval between board messages
-                time.sleep(0.1)
-
-                # send current board, update local state knowledge
-                if self.board_state < BOARD_STATE:
-                    self.con.send(','.join(BOARD)+';')
-                    self.board_state = BOARD_STATE
-                    break
-
-        print '\t', 'SENDING BOARD FINISHED', self.client
-        self.con.close()
 
 ################################################################################
 # Receive the user attempts from proxy
@@ -73,6 +27,14 @@ class RecvAttempts(threading.Thread):
         self.client = client
         self.replicating = replicating
 
+    def disconnect(self, exception=None):
+        if exception:
+            print 'Raised:', exception
+        print '\t', 'ROUTING ATTEMPTS FINISHED', self.client
+        self.con.close()
+        self.serving.clear()
+        sys.exit()
+
     def run(self):
         print '\t', 'RECEIVING ATTEMPTS FROM', self.client
 
@@ -80,43 +42,32 @@ class RecvAttempts(threading.Thread):
         global BOARD_STATE
         self.con.settimeout(5.0)
 
-        while self.replicating.is_set():
+        # receive word
+        try:
+            word = self.con.recv(1024)
+            if not word: raise Exception('Invalid word')
+            print '\t\t', self.client, 'says', word
+        except:
+            self.disconnect(sys.exc_info()[0])
 
-            # receive word
-            try:
-                word = self.con.recv(1024)
-                if not word: break
-                print '\t\t', self.client, 'says', word
-            except socket.timeout:
-                continue;
+        # process the word, update board and board state
+        with THREADLOCK:
+            BOARD, points, error = game.process(BOARD, word)
+            if len(error) == 0:
+                BOARD_STATE = BOARD_STATE + 1
 
-            # process the word, update board and board state
-            with THREADLOCK:
-                BOARD, points, error = game.process(BOARD, word)
-                if len(error) == 0:
-                    BOARD_STATE = BOARD_STATE + 1
+        # send result
+        print '\t\t', common.strAddr(self.client), 'made', points, 'points'
+        result = [','.join(BOARD), str(points), error]
+        result = ';'.join(result)
+        self.con.send(result)
 
-            # send result
-            print '\t\t', self.client, 'made', points, 'points'
-            self.con.send(str(points) + ';' + error)
-
-            while True:
-                try:
-                    # client ready to receive new board
-                    ready = self.con.recv(1)
-                    if ready:
-                        break
-                except socket.timeout:
-                    print 'Waiting for ready signal'
-                    continue;
-
-        print '\t', 'RECEIVING ATTEMPTS FINISHED', self.client
         self.con.close()
 
 ################################################################################
 class UserAttempts(threading.Thread):
 
-    def __init__(self, name, playing):
+    def __init__(self, name, replicating):
         threading.Thread.__init__(self)
         self.name = name
         self.replicating = replicating
@@ -133,7 +84,7 @@ class UserAttempts(threading.Thread):
         threads = []
         while self.replicating.is_set():
             con, client = tcp.accept()
-            t = RecvAttempts("Connection "+str(con_count), con, client, replicating)
+            t = RecvAttempts("Connection "+str(con_count), con, client, self.replicating)
             t.start()
             threads.append(t)
 
@@ -146,31 +97,73 @@ class UserAttempts(threading.Thread):
 ################################################################################
 class ServeBoard(threading.Thread):
 
-    def __init__(self, name, playing):
+    def __init__(self, name, replicating):
         threading.Thread.__init__(self)
         self.name = name
         self.replicating = replicating
 
     def run(self):
-        tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        orig = (HOST, PORT)
 
-        tcp.bind(orig)
-        tcp.listen(MAX_CONN)
+        global BOARD
+        global BOARD_STATE
 
-        con_count = 0
-        threads = []
+        tcp = common.tcp(HOST, PORT+128, MAX_CONN)
+
         while self.replicating.is_set():
+
             con, client = tcp.accept()
-            t = SendBoard("Connection "+str(con_count), con, client, replicating)
-            t.start()
-            threads.append(t)
+            con.settimeout(5.0)
 
-        for t in threads:
-            print ':: Finishing board replicating threads ::'
-            t.join()
+            print '\t', 'SENDING BOARD TO', client[0]
+            print BOARD
 
+            with THREADLOCK:
+                con.send(','.join(BOARD))#+';'+str(BOARD_STATE))
+
+            time.sleep(1)
+
+            con.close()
+        tcp.close()
+
+################################################################################
+class FeedingBoard(threading.Thread):
+
+    def __init__(self, name, replicating):
+        threading.Thread.__init__(self)
+        self.name = name
+        self.replicating = replicating
+
+    def run(self):
+
+        global BOARD
+        global BOARD_STATE
+
+        tcp = common.tcp(HOST, PORT+64, 1)
+
+        while replicating.is_set():
+
+            con, client = tcp.accept()
+            con.settimeout(5.0)
+
+            # receive letter from proxy
+            try:
+                letter = con.recv(1)
+                if not letter: raise Exception('Invalid letter')
+                print '\t\t', client[0], 'added', letter
+            except:
+                print sys.exc_info()[0]
+                sys.exit()
+
+            # append the letter to board
+            with THREADLOCK:
+                BOARD.append(letter)
+                BOARD_STATE = BOARD_STATE + 1
+
+            # send ready sign
+            con.send('r')
+            con.close()
+
+        print ':: Finishing feeding board thread ::'
         tcp.close()
 
 ################################################################################
@@ -184,21 +177,25 @@ if __name__ == "__main__":
 
     t_serving_board = ServeBoard("Serve Board", replicating)
     t_user_attempts = UserAttempts("User Attempts", replicating)
+    t_feeding_board = FeedingBoard("Feed Board", replicating)
 
     t_serving_board.start()
     t_user_attempts.start()
+    t_feeding_board.start()
 
     try:
         while 1:
-            time.sleep(.1)
+            time.sleep(1)
     except KeyboardInterrupt:
         print "Attempting to close replica threads."
         replicating.clear()
+
         t_serving_board.join(timeout=0.5)
         t_user_attempts.join(timeout=0.5)
+        t_feeding_board.join(timeout=0.5)
 
-        if t_serving_board.isAlive() or t_user_attempts.isAlive():
+        if t_serving_board.isAlive() or t_user_attempts.isAlive() or t_feeding_board.isAlive():
             print 'Bye'
             common.terminate()
 
-        print "Game threads successfully closed :)"
+        print "Replica threads successfully closed :)"

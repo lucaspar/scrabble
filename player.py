@@ -2,15 +2,18 @@
 from Tkinter import *
 import threading
 import common
+import select
 import socket
 import time
 import game
 import sys
+import ui
 import os
 
 # constants
 HOST = '127.0.0.1'      # proxy address
 PORT = 5000             # port
+FPS = 20                # frames per second
 
 # game properties
 board = []
@@ -39,57 +42,23 @@ class UpdateUI(threading.Thread):
         tcp.settimeout(5.0)
 
         # set user interface
-        bg = '#444'
-        ui_root = Tk()
-        ui_root.title('SCRABBLE')
-        ui_root.geometry("500x500")
-        ui_root.resizable(0, 0)
-
-        frame = Frame(master=ui_root, width=500, height=500, bg=bg)
-        frame.pack_propagate(0)
-        frame.pack(fill=BOTH, expand=1)
-
-        board_ui = StringVar()
-        error_ui = StringVar()
-        points_ui = StringVar()
-
-        board_ui.set('')
-        error_ui.set('')
-        points_ui.set('')
-
-        l_board = Label(master=frame, bg=bg, textvariable = board_ui, font=("Ubuntu", 44))
-        l_error = Label(master=frame, bg=bg, textvariable = error_ui)
-        l_points = Label(master=frame, bg=bg, textvariable = points_ui)
-
-        l_board.pack(side='top')
-        l_error.pack(side='bottom')
-        l_points.pack(side='right')
+        gui = ui.Interface()
+        gui.setInterface()
 
         # playing
         try:
             while playing.is_set():
 
-                # receive current board
                 try:
+                    # receive current board
                     board = (tcp.recv(1024)).split(';')[0].split(',')
+
+                    gui.update(board, points, error)    # update UI
+                    tcp.send('r')                       # ready signal
+                    time.sleep(1/FPS)                   # timeout for redraw
+
                 except socket.timeout:
                     continue
-
-                # updating UI
-                board_ui.set('  '.join(board))
-                points_ui.set(str(points) + ' PONTOS')
-                if len(error) > 0:
-                    error_ui.set('Erro: ' + error)
-                else:
-                    error_ui.set('')
-
-                ui_root.update_idletasks()
-
-                # timeout for redraw
-                time.sleep(0.1)
-
-                # ready signal
-                tcp.send('r')
 
             tcp.close()
             print '\n\t', ':: Update UI loop finished ::'
@@ -97,8 +66,8 @@ class UpdateUI(threading.Thread):
 
         except:
             e = sys.exc_info()[0]
-            tcp.close()
             playing.clear()
+            tcp.close()
             print '\n\t', ':: Update UI interrupted ::', e
 
 ################################################################################
@@ -117,27 +86,28 @@ class UserInput(threading.Thread):
         global error
 
         # user input connection
-        tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        dest = (HOST, PORT+1)
-        tcp.connect(dest)
-        tcp.settimeout(5.0)
+        tcp = common.tcp_client(HOST, PORT+1, timeout=5)
 
         # play game
         try:
             while playing.is_set():
 
-                # send bet
-                msg = raw_input()
-                tcp.send(msg)
+                # if there's input ready, read it
+                while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    msg = sys.stdin.readline().strip('\n')
+                    if msg:
+                        print 'msg:', msg
+                        tcp.send(msg)
+                    else: continue       # empty line
+                else:
+                    time.sleep(0.05)     # no input, sleep before checking again
+                    continue
 
                 # get result
                 answer = (tcp.recv(1024)).split(';')
                 print answer
                 points = points + float(answer[0])
                 error = answer[1]
-
-                # ready signal
-                tcp.send('r')
 
             tcp.close()
             print '\n\t', ':: User input loop finished ::'
@@ -158,12 +128,15 @@ if __name__ == "__main__":
     t_update_ui = UpdateUI("Update UI", playing)
     t_user_input = UserInput("User Input", playing)
 
+    t_user_input.daemon = True
+    t_update_ui.daemon = True
+
     t_update_ui.start()
     t_user_input.start()
 
     try:
         while 1:
-            time.sleep(.1)
+            time.sleep(1)
     except KeyboardInterrupt:
         print "Attempting to close player threads."
         playing.clear()
