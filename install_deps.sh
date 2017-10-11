@@ -1,4 +1,4 @@
-# fix locale
+# fix locale error
 #sudo locale-gen pt_BR
 #sudo locale-gen pt_BR.UTF-8
 #sudo dpkg-reconfigure locales
@@ -10,5 +10,4 @@ sudo pip install --upgrade pip
 sudo pip install psutil
 sudo pip install sortedcontainers
 
-git clone https://github.com/lucaspar/scrabble.git
 cd scrabble
