@@ -64,7 +64,7 @@ def process(ORIGINAL_BOARD = [], word = None):
     if len(board) > 0 and word is not None:
 
         word = word.upper()
-        print '\t\t\tRemoving', word, 'from', board
+        print '\t\t\tRemoving', word, 'from', ''.join(board)
         if re.match('^[\w]+$', word) is None:
             error = 'Non alpha'
         else:

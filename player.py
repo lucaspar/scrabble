@@ -97,7 +97,7 @@ class UserInput(threading.Thread):
 
                 # if there's input ready, read it
                 while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                    msg = sys.stdin.readline().strip('\n')
+                    msg = sys.stdin.readline().strip('\n').lower()
                     if msg:
                         print 'msg:', msg
                         tcp.send(msg)

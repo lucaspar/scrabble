@@ -27,6 +27,7 @@ if MAX_REP < REP_NUM: raise Exception, 'REP_NUM is greater than MAX_REP'
 THREADLOCK = threading.Lock()
 BOARD = ['P', 'R', 'O', 'X', 'Y']
 BOARD_STATE = -1
+SEQ_NUM = 0
 WORDLIST = game.Dictionary()
 
 ################################################################################
@@ -102,6 +103,7 @@ class RecvAttempts(threading.Thread):
         global BOARD
         global BOARD_STATE
         global WORDLIST
+        global SEQ_NUM
 
         while self.serving.is_set():
 
@@ -111,7 +113,7 @@ class RecvAttempts(threading.Thread):
                 if not word: raise Exception('Invalid word')
                 print '\t\t', common.strAddr(self.client), 'says', word
             except socket.timeout:
-                continue;
+                continue
             except:
                 self.disconnect(sys.exc_info()[0])
 
@@ -119,7 +121,10 @@ class RecvAttempts(threading.Thread):
             if WORDLIST.contains(word):
 
                 # send word to replicas
-                responses = common.replicast(group=REP_ADDR, message=word, port_stride=1)
+                with THREADLOCK:
+                    msg = str(SEQ_NUM) + ';' + word
+                    SEQ_NUM = SEQ_NUM + 1
+                responses = common.replicast(group=REP_ADDR, message=msg, port_stride=1)
                 res = responses.itervalues().next().split(';')
 
                 # process the word, update board and board state
@@ -206,11 +211,18 @@ class FeedingBoard(threading.Thread):
         self.serving = serving
 
     def run(self):
+
+        global SEQ_NUM
+
         while serving.is_set():
             if len(BOARD) < MAX_LETTERS:
                 # choose a letter and multicast to replicas
                 letter = game.chooseLetter()
-                responses = common.replicast(group=REP_ADDR, message=letter, port_stride=64)
+                with THREADLOCK:
+                    msg = str(SEQ_NUM) + ';' + letter
+                    SEQ_NUM = SEQ_NUM + 1
+
+                responses = common.replicast(group=REP_ADDR, message=msg, port_stride=64)
 
             # the more letter on the board, the less new letters over time
             interval = max(len(BOARD)/5, 0.4)
@@ -234,16 +246,17 @@ class RetrieveBoard(threading.Thread):
 
             board = common.replicast_once(group=REP_ADDR, message='board', port_stride=128)
 
-            if board and board_state > BOARD_STATE:
+            if board:
 
                 board = board.split(';')
                 board_state = int(board[1])
                 board = board[0].split(',')
 
-                with THREADLOCK:
-                    BOARD = board
-                    BOARD_STATE = board_state
-                    print ''.join(BOARD), BOARD_STATE
+                if board_state > BOARD_STATE:
+                    with THREADLOCK:
+                        BOARD = board
+                        BOARD_STATE = board_state
+                        print '\t\t', ''.join(BOARD), SEQ_NUM
 
             # wait for checking again
             time.sleep(TIME_INTERVAL)

@@ -15,6 +15,7 @@ MAX_CONN = 10           # maximum simultaneous connections
 THREADLOCK = threading.Lock()
 BOARD = ['R', 'E', 'P', 'L', 'I', 'C', 'A']
 BOARD_STATE = 0
+SEQ_NUM = -1
 
 ################################################################################
 # Receive the user attempts from proxy
@@ -36,6 +37,9 @@ class RecvAttempts(threading.Thread):
         sys.exit()
 
     def run(self):
+
+        global SEQ_NUM
+
         print '\t', 'RECEIVING ATTEMPTS FROM', self.client
 
         global BOARD
@@ -44,16 +48,26 @@ class RecvAttempts(threading.Thread):
 
         # receive word
         try:
-            word = self.con.recv(1024)
-            if not word: raise Exception('Invalid word')
-            print '\t\t', self.client, 'says', word
+            req = self.con.recv(1024)
+            if not req: raise Exception('Invalid word')
         except:
             self.disconnect(sys.exc_info()[0])
 
+        req = req.split(';')
+        seq_num = int(req[0])
+        word = req[1]
+        print '\t\t', self.client, 'says', word
+
+        # wait for concurrent messages
+        while seq_num > SEQ_NUM + 1:
+            print '.',
+            time.sleep(0.1)
+
         # process the word, update board and board state
         with THREADLOCK:
+            SEQ_NUM = SEQ_NUM + 1
             BOARD, points, error = game.process(BOARD, word)
-            if len(error) == 0:
+            if not error:
                 BOARD_STATE = BOARD_STATE + 1
 
         # send result
@@ -115,7 +129,7 @@ class ServeBoard(threading.Thread):
             con.settimeout(5.0)
 
             print '\t', 'SENDING BOARD TO', client[0]
-            print BOARD
+            print '\t\t', ''.join(BOARD), SEQ_NUM
 
             with THREADLOCK:
                 con.send(','.join(BOARD)+';'+str(BOARD_STATE))
@@ -137,6 +151,7 @@ class FeedingBoard(threading.Thread):
 
         global BOARD
         global BOARD_STATE
+        global SEQ_NUM
 
         tcp = common.tcp(HOST, PORT+64, 1)
 
@@ -147,15 +162,25 @@ class FeedingBoard(threading.Thread):
 
             # receive letter from proxy
             try:
-                letter = con.recv(1)
-                if not letter: raise Exception('Invalid letter')
-                print '\t\t', client[0], 'added', letter
+                req = con.recv(1024)
+                if not req: raise Exception('Empty feed')
             except:
                 print sys.exc_info()[0]
                 sys.exit()
 
-            # append the letter to board
+            req = req.split(';')
+            seq_num = int(req[0])
+            letter = req[1]
+            print '\t\t', client[0], 'added', letter
+
+            # wait for concurrent messages
+            while seq_num > SEQ_NUM + 1:
+                print 'w',
+                time.sleep(0.1)
+
+            # process the word, update board and board state
             with THREADLOCK:
+                SEQ_NUM = SEQ_NUM + 1
                 BOARD.append(letter)
                 BOARD_STATE = BOARD_STATE + 1
 
