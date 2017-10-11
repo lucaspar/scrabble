@@ -11,7 +11,8 @@ import ui
 import os
 
 # constants
-HOST = '192.168.83.134'     # proxy address
+#HOST = '192.168.83.134'     # proxy address
+HOST = ''                   # proxy address
 PORT = 5000                 # port
 FPS = 20                    # frames per second
 
@@ -50,7 +51,8 @@ class UpdateUI(threading.Thread):
             while playing.is_set():
                 try:
                     # receive current board
-                    board = (tcp.recv(1024)).split(';')[0].split(',')
+                    res = (tcp.recv(1024)).split(';')
+                    board = res[0].split(',')
 
                     tcp.send('r')                           # ready signal
                     if len(board) > 0:
@@ -99,16 +101,17 @@ class UserInput(threading.Thread):
                     if msg:
                         print 'msg:', msg
                         tcp.send(msg)
+
+                        # get result
+                        answer = (tcp.recv(1024)).split(';')
+                        print 'ans:', answer
+                        points = points + float(answer[0])
+                        error = answer[1]
+
                     else: continue       # empty line
                 else:
                     time.sleep(0.05)     # no input, sleep before checking again
                     continue
-
-                # get result
-                answer = (tcp.recv(1024)).split(';')
-                print answer
-                points = points + float(answer[0])
-                error = answer[1]
 
             tcp.close()
             print '\n\t', ':: User input loop finished ::'

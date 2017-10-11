@@ -1,8 +1,11 @@
 #!/usr/bin/python
+import sortedcontainers
+import unicodedata
 import collections
 import operator
 import random
 import math
+import sys
 import re
 import os
 ################################################################################
@@ -53,11 +56,13 @@ def calcPoints(word):
 
 ################################################################################
 # Return new board, the points, and error message (zero points if invalid play)
-def process(board = [], word = None):
+def process(ORIGINAL_BOARD = [], word = None):
+    board = list(ORIGINAL_BOARD)
     error = ''
     points = 0
 
     if len(board) > 0 and word is not None:
+
         word = word.upper()
         print '\t\t\tRemoving', word, 'from', board
         if re.match('^[\w]+$', word) is None:
@@ -72,7 +77,8 @@ def process(board = [], word = None):
                     board.remove(l)
                 else:
                     error = 'Letra indisponivel'
-                    break
+                    points = 0
+                    return ORIGINAL_BOARD, points, error
 
             points = calcPoints(word)
 
@@ -147,6 +153,44 @@ def testScoringSystem():
 
     print 'Passed scoring system test'
 
+def removeAccents(w):
+    return unicodedata.normalize('NFKD', w.decode('utf8')).encode('ASCII','ignore')
+
+################################################################################
+# Valid words in game
+class Dictionary:
+
+    words_location = '/usr/share/dict/brazilian'
+
+    def __init__(self, autoload=True):
+        if autoload:
+            self.load(Dictionary.words_location)
+
+    # Load dictionary
+    def load(self, path):
+        try:
+            with open(path, mode='rb') as file:
+                buf = file.read()
+        except:
+            e = sys.exc_info()[0]
+            print 'Could not load words from', Dictionary.words_location, e
+            return None
+
+        wlist = buf.decode('iso-8859-1').encode('utf8').split('\n')
+        self.words = sortedcontainers.SortedList()
+
+        # remove accents and add
+        for w in wlist:
+            w = removeAccents(w)
+            self.words.add(w)
+
+    def contains(self, word):
+        if self.words:
+            return word in self.words
+        else:
+            print 'Nothing in dictionary'
+            return None
+
 #############
 ### MAIN ###
 #############
@@ -157,3 +201,7 @@ if __name__ == '__main__':
     print 'Running tests...'
     testLetterDistribution()
     testScoringSystem()
+    words = Dictionary()
+
+    #word = removeAccents(raw_input())
+    #print words.contains(word)

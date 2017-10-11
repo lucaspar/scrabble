@@ -14,7 +14,7 @@ class Interface:
     def __init__(self):
         self.ui_root = Tk()
         self.ui_root.title('SCRABBLE')
-        self.ui_root.geometry("600x400")
+        self.ui_root.geometry("800x600")
         self.ui_root.resizable(0, 0)
 
     # close window
@@ -27,7 +27,7 @@ class Interface:
     def setInterface(self):
         bg = '#48d'
         self.ui_root.protocol("WM_DELETE_WINDOW", self.quit)
-        self.frame = Frame(master=self.ui_root, width=600, height=400, bg=bg)
+        self.frame = Frame(master=self.ui_root, width=800, height=600, bg=bg)
         self.frame.pack_propagate(0)
         self.frame.pack(fill=BOTH, expand=1)
 
@@ -39,8 +39,8 @@ class Interface:
         self.error_ui.set('')
         self.points_ui.set('')
 
-        self.l_board = Message(master=self.frame, bg=bg, textvariable = self.board_ui, width=540, font=("Ubuntu Mono", 42), anchor=NW)
-        self.l_error = Label(master=self.frame, bg=bg, textvariable = self.error_ui)
+        self.l_board = Message(master=self.frame, bg=bg, fg='#fff', textvariable = self.board_ui, width=540, font=("Ubuntu Mono", 42), anchor=NW)
+        self.l_error = Label(master=self.frame, bg=bg, fg='#fda', textvariable = self.error_ui, font=("Ubuntu", 20))
         self.l_points = Label(master=self.frame, bg=bg, textvariable = self.points_ui)
 
         self.l_board.pack(side='top')
@@ -52,7 +52,7 @@ class Interface:
         self.board_ui.set('  '.join(board))
         self.points_ui.set(str(points) + ' PONTOS')
         if len(error) > 0:
-            self.error_ui.set('Erro: ' + error)
+            self.error_ui.set(error)
         else:
             self.error_ui.set('')
 

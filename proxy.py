@@ -27,6 +27,7 @@ if MAX_REP < REP_NUM: raise Exception, 'REP_NUM is greater than MAX_REP'
 THREADLOCK = threading.Lock()
 BOARD = ['P', 'R', 'O', 'X', 'Y']
 BOARD_STATE = -1
+WORDLIST = game.Dictionary()
 
 ################################################################################
 # Periodically send the board to a connected client
@@ -100,6 +101,7 @@ class RecvAttempts(threading.Thread):
 
         global BOARD
         global BOARD_STATE
+        global WORDLIST
 
         while self.serving.is_set():
 
@@ -113,23 +115,29 @@ class RecvAttempts(threading.Thread):
             except:
                 self.disconnect(sys.exc_info()[0])
 
-            # TODO: validate word
+            # if valid word
+            if WORDLIST.contains(word):
 
-            # send word to replicas
-            responses = common.replicast(group=REP_ADDR, message=word, port_stride=1)
-            res = responses.itervalues().next().split(';')
+                # send word to replicas
+                responses = common.replicast(group=REP_ADDR, message=word, port_stride=1)
+                res = responses.itervalues().next().split(';')
 
-            # process the word, update board and board state
-            points = res[1]
-            error = res[2]
-            with THREADLOCK:
-                if set(BOARD) != set(res[0]):
-                    BOARD = res[0]
-                    BOARD_STATE = BOARD_STATE + 1
+                # process the word, update board and board state
+                points = res[1]
+                error = res[2]
+                with THREADLOCK:
+                    if set(BOARD) != set(res[0]):
+                        BOARD = res[0]
+                        BOARD_STATE = BOARD_STATE + 1
 
-            # send result
-            print '\t\t', common.strAddr(self.client), 'made', points, 'pts'
-            self.con.send(str(points) + ';' + error)
+                # send result
+                print '\t\t', common.strAddr(self.client), 'made', points, 'pts'
+                self.con.send(str(points) + ';' + error)
+
+            # send failure
+            else:
+                print '\t\t', common.strAddr(self.client), 'sent invalid', word
+                self.con.send('0;Ops, palavra inexistente')
 
         self.disconnect()
 
@@ -225,11 +233,13 @@ class RetrieveBoard(threading.Thread):
         while serving.is_set():
 
             board = common.replicast_once(group=REP_ADDR, message='board', port_stride=128)
-            board = board.split(';')
-            board_state = int(board[1])
-            board = board[0].split(',')
 
             if board and board_state > BOARD_STATE:
+
+                board = board.split(';')
+                board_state = int(board[1])
+                board = board[0].split(',')
+
                 with THREADLOCK:
                     BOARD = board
                     BOARD_STATE = board_state

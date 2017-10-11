@@ -1,3 +1,4 @@
+import sortedcontainers
 import psutil
 import socket
 import errno
@@ -43,8 +44,6 @@ def tcp_client(host, port, timeout=5):
 def unicast(address, port, message, response_size=1024, timeout=5):
     response = None
 
-    print 'unicast trying', address
-
     # connect to host
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     dest = (address, port)
@@ -77,7 +76,6 @@ def replicast_once(group, message, port_stride=0):
     response = None
     for address, port in group.items():
         try:
-            print 'once trying', address
             response = unicast(address, port+port_stride, message)
             if response is None: continue
             else: break
